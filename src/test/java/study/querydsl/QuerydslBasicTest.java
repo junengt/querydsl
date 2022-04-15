@@ -1,9 +1,12 @@
 package study.querydsl;
 
+import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.QueryResults;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.ExpressionUtils;
+import com.querydsl.core.types.Predicate;
 import com.querydsl.core.types.Projections;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.JPAExpressions;
@@ -14,8 +17,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.Commit;
 import org.springframework.transaction.annotation.Transactional;
 import study.querydsl.dto.MemberDto;
+import study.querydsl.dto.QMemberDto;
 import study.querydsl.dto.UserDto;
 import study.querydsl.entity.Member;
 import study.querydsl.entity.QMember;
@@ -63,11 +68,11 @@ public class QuerydslBasicTest {
     @Test
     public void startJPQL() {
         //member1 찾기
-        Member findMember = em.createQuery("select m from Member m where m.userName = :userName", Member.class)
+        Member findMember = em.createQuery("select m from Member m where m.username = :userName", Member.class)
                 .setParameter("userName", "member1")
                 .getSingleResult();
 
-        assertThat(findMember.getUserName()).isEqualTo("member1");
+        assertThat(findMember.getUsername()).isEqualTo("member1");
     }
 
     @Test
@@ -77,32 +82,32 @@ public class QuerydslBasicTest {
         Member findMember = query
                 .select(member)
                 .from(member)
-                .where(member.userName.eq("member1")) //파라미터 바인딩 처리
+                .where(member.username.eq("member1")) //파라미터 바인딩 처리
                 .fetchOne();
 
-        assertThat(findMember.getUserName()).isEqualTo("member1");
+        assertThat(findMember.getUsername()).isEqualTo("member1");
     }
 
     @Test
     public void search() {
         Member findMember = query
                 .selectFrom(member)
-                .where(member.userName.
+                .where(member.username.
                         isNotNull()
                         .and(member.age.eq(10)))
                 .fetchOne();
-        assertThat(findMember.getUserName()).isEqualTo("member1");
+        assertThat(findMember.getUsername()).isEqualTo("member1");
     }
 
     @Test
     public void searchAndParam() {
         Member findMember = query
                 .selectFrom(QMember.member)
-                .where(QMember.member.userName.eq("member1"),
+                .where(QMember.member.username.eq("member1"),
                         QMember.member.age.eq(10)
                 )
                 .fetchOne();
-        assertThat(findMember.getUserName()).isEqualTo("member1");
+        assertThat(findMember.getUsername()).isEqualTo("member1");
     }
 
     @Test
@@ -149,22 +154,22 @@ public class QuerydslBasicTest {
         List<Member> result = query
                 .selectFrom(member)
                 .where(member.age.eq(100))
-                .orderBy(member.age.desc(), member.userName.asc().nullsLast())
+                .orderBy(member.age.desc(), member.username.asc().nullsLast())
                 .fetch();
 
         Member member5 = result.get(0);
         Member member6 = result.get(1);
         Member memberNull = result.get(2);
-        assertThat(member5.getUserName()).isEqualTo("member5");
-        assertThat(member6.getUserName()).isEqualTo("member6");
-        assertThat(memberNull.getUserName()).isNull();
+        assertThat(member5.getUsername()).isEqualTo("member5");
+        assertThat(member6.getUsername()).isEqualTo("member6");
+        assertThat(memberNull.getUsername()).isNull();
     }
 
     @Test
     public void paging1() {
         List<Member> result = query
                 .selectFrom(member)
-                .orderBy(member.userName.asc())
+                .orderBy(member.username.asc())
                 .offset(1)
                 .limit(2)
                 .fetch();
@@ -176,7 +181,7 @@ public class QuerydslBasicTest {
     public void paging2() {
         QueryResults<Member> result = query
                 .selectFrom(member)
-                .orderBy(member.userName.asc())
+                .orderBy(member.username.asc())
                 .offset(1)
                 .limit(2)
                 .fetchResults();
@@ -259,7 +264,7 @@ public class QuerydslBasicTest {
         List<Member> result = query
                 .selectFrom(member)
                 .from(member, team)
-                .where(member.userName.eq(team.name))
+                .where(member.username.eq(team.name))
                 .fetch();
 
         assertThat(result)
@@ -294,7 +299,7 @@ public class QuerydslBasicTest {
         List<Tuple> result = query
                 .select(member, team)
                 .from(member)
-                .leftJoin(team).on(member.userName.eq(team.name))
+                .leftJoin(team).on(member.username.eq(team.name))
                 .fetch();
 
         for (Tuple tuple : result) {
@@ -312,7 +317,7 @@ public class QuerydslBasicTest {
 
         Member findMember = query
                 .selectFrom(QMember.member)
-                .where(QMember.member.userName.eq("member1"))
+                .where(QMember.member.username.eq("member1"))
                 .fetchOne();
 
         //이미 로딩된 엔티티인지 로딩이 안된 엔티티인지 알려주는 함수(isLoaded)
@@ -329,7 +334,7 @@ public class QuerydslBasicTest {
         Member findMember = query
                 .selectFrom(member)
                 .join(member.team, team).fetchJoin()
-                .where(member.userName.eq("member1"))
+                .where(member.username.eq("member1"))
                 .fetchOne();
 
         //이미 로딩된 엔티티인지 로딩이 안된 엔티티인지 알려주는 함수(isLoaded)
@@ -403,7 +408,7 @@ public class QuerydslBasicTest {
         QMember memberSub = new QMember("memberSub");
 
         List<Tuple> result = query
-                .select(member.userName,
+                .select(member.username,
                         JPAExpressions
                                 .select(memberSub.age.avg())
                                 .from(memberSub))
@@ -449,7 +454,7 @@ public class QuerydslBasicTest {
     public void constant() {
         List<Tuple> result = query
                 //가져온 회원 이름 옆에 상수 문자열 "A"가 들어감
-                .select(member.userName, Expressions.constant("A"))
+                .select(member.username, Expressions.constant("A"))
                 .from(member)
                 .fetch();
 
@@ -462,9 +467,9 @@ public class QuerydslBasicTest {
     public void concat() {
         List<String> result = query
                 //.stringValue()함수는 ENUM을 처리할 때 많이 사용된다
-                .select(member.userName.concat("_").concat(member.age.stringValue()))
+                .select(member.username.concat("_").concat(member.age.stringValue()))
                 .from(member)
-                .where(member.userName.eq("member1"))
+                .where(member.username.eq("member1"))
                 .fetch();
 
         for (String s : result) {
@@ -476,7 +481,7 @@ public class QuerydslBasicTest {
     @Test
     public void simpleProjection() {
         List<String> result = query
-                .select(member.userName)
+                .select(member.username)
                 .from(member)
                 .fetch();
 
@@ -492,7 +497,7 @@ public class QuerydslBasicTest {
     @Test
     public void tupleProjection() {
         List<Tuple> result = query
-                .select(member.userName, member.age)
+                .select(member.username, member.age)
                 .from(member)
                 .fetch();
 
@@ -509,7 +514,7 @@ public class QuerydslBasicTest {
     @Test
     public void findDtoByJpql() {
 //        em.createQuery("select m from Member m",Member.class) -> Entity를 조회
-        List<MemberDto> result = em.createQuery("select new study.querydsl.dto.MemberDto(m.userName, m.age) from Member m", MemberDto.class)
+        List<MemberDto> result = em.createQuery("select new study.querydsl.dto.MemberDto(m.username, m.age) from Member m", MemberDto.class)
                 .getResultList();
 //        new ~ MemberDto(m.userName, m.age) <- MemberDto 클래스 안에 정의한 생성자에 맞게
 
@@ -523,7 +528,7 @@ public class QuerydslBasicTest {
     public void findDtoBySetter() {
         List<MemberDto> result = query
                 .select(Projections.bean(MemberDto.class,
-                        member.userName,
+                        member.username,
                         member.age))
                 .from(member)
                 .fetch();
@@ -538,7 +543,7 @@ public class QuerydslBasicTest {
     public void findDtoByField() {
         List<MemberDto> result = query
                 .select(Projections.fields(MemberDto.class,
-                        member.userName,
+                        member.username,
                         member.age))
                 .from(member)
                 .fetch();
@@ -553,7 +558,7 @@ public class QuerydslBasicTest {
     public void findDtoByConstructor() {
         List<MemberDto> result = query
                 .select(Projections.constructor(MemberDto.class,
-                        member.userName,
+                        member.username,
                         member.age))
                 .from(member)
                 .fetch();
@@ -569,7 +574,7 @@ public class QuerydslBasicTest {
         QMember memberSub = new QMember("memberSub");
         List<UserDto> result = query
                 .select(Projections.fields(UserDto.class,
-                        member.userName.as("name"),
+                        member.username.as("name"),
 
                                 ExpressionUtils.as(JPAExpressions
                                                 .select(memberSub.age.max())
@@ -587,7 +592,7 @@ public class QuerydslBasicTest {
     public void findUserDtoByConstructor() {
         List<UserDto> result = query
                 .select(Projections.constructor(UserDto.class,
-                        member.userName,
+                        member.username,
                         member.age))
                 .from(member)
                 .fetch();
@@ -597,4 +602,139 @@ public class QuerydslBasicTest {
         }
     }
 
+    @Test
+    public void findDtoByQueryProjection() {
+        List<MemberDto> result = query
+                .select(new QMemberDto(member.username, member.age))
+                .from(member)
+                .fetch();
+
+        for (MemberDto memberDto : result) {
+            System.out.println("memberDto = " + memberDto);
+        }
+    }
+
+    //동적 쿼리 작성법 BooleanBuilder 사용
+    //넘어온 유저의 이름 파라미터 값은 member1
+    //넘어온 유저의 나이 파라미터 값은 10살
+    @Test
+    public void dynamicQuery_BooleanBuilder() {
+        String usernameParam = "member1";
+        Integer ageParam = 10;
+
+        List<Member> result = searchMember1(usernameParam, ageParam);
+        assertThat(result.size()).isEqualTo(1);
+    }
+
+    private List<Member> searchMember1(String usernameCon, Integer ageCond) {
+
+        BooleanBuilder builder = new BooleanBuilder();
+        if (usernameCon != null) {
+            builder.and(member.username.eq(usernameCon));
+        }
+        if (ageCond != null) {
+            builder.and(member.age.eq(ageCond));
+        }
+        return query
+                .selectFrom(member)
+                .where(builder)
+                .fetch();
+    }
+
+    //코드가 굉장히 깔끔해지는 동적 쿼리
+    //Where절에 다중 파라미터
+    @Test
+    public void dynamicQuery_WhereParam() {
+        String usernameParam = "member1";
+        Integer ageParam = 10;
+        //ageParam이 null이라면 무시됨
+
+        List<Member> result = searchMember2(usernameParam, ageParam);
+        assertThat(result.size()).isEqualTo(1);
+
+
+    }
+
+    private List<Member> searchMember2(String usernameCond, Integer ageCond) {
+        return query
+                .selectFrom(member)
+                .where(usernameEq(usernameCond), ageEq(ageCond))
+                .fetch();
+    }
+
+    private BooleanExpression usernameEq(String usernameCond) {
+        return usernameCond != null ? member.username.eq(usernameCond) : null;
+    }
+
+    private BooleanExpression ageEq(Integer ageCond) {
+        return ageCond != null ? member.age.eq(ageCond) : null;
+    }
+
+    //장점 조립이 가능하다 어떻게? usernameEq 메서드와 ageEq메서드의 타입을 BooleanExpression으로 바꿔서 함
+    //하지만 null 처리는 따로 해줘야 함
+    private BooleanExpression allEq(String userCond, Integer ageCond) {
+        return usernameEq(userCond).and(ageEq(ageCond));
+    }
+
+    //벌크 연산
+    @Test
+    public void bulkUpdate() {
+        //나이가 28살 미만인 회원들의 이름을 전부 비회원으로 update
+        long count = query
+                .update(member)
+                .set(member.username, "비회원")
+                .where(member.age.lt(28))
+                .execute();
+        //벌크 연산을 수행하면 영속성 컨텍스트를 초기화 시켜줘야함
+        em.flush();
+        em.clear();
+    }
+
+    @Test
+    public void bulkAdd() {
+        long count = query
+                .update(member)
+                .set(member.age, member.age.add(1))
+                .execute();
+    }
+
+    @Test
+    public void bulkDelete() {
+        long count = query
+                .delete(member)
+                .where(member.age.gt(18))
+                .execute();
+    }
+
+
+    //sqlFunction 호출
+    @Test
+    public void sqlFunction() {
+        List<String> result = query
+                .select(Expressions.stringTemplate(
+                        "function('replace', {0}, {1}, {2})",
+                        member.username, "member", "M"))
+                .from(member)
+                .fetch();
+
+        for (String s : result) {
+            System.out.println("s = " + s);
+        }
+    }
+
+
+    @Test
+    public void sqlFunction2() {
+        List<String> result = query
+                .select(member.username)
+                .from(member)
+//                .where(member.userName.eq(Expressions.stringTemplate(
+//                        "function('lower', {0})", member.userName)))
+                .where(member.username.eq(member.username.lower()))
+                .fetch();
+
+        for (String s : result) {
+            System.out.println("s = " + s);
+        }
+    }
 }
